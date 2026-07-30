@@ -56,13 +56,6 @@ public class UmamiEndpoint implements CustomEndpoint {
 
     private Mono<ServerResponse> getPageviews(ServerRequest request) {
         String url = request.queryParam("url").orElse("");
-        int days = request.queryParam("days").map(v -> {
-            try {
-                return Math.min(Math.max(Integer.parseInt(v), 1), 365);
-            } catch (NumberFormatException e) {
-                return 30;
-            }
-        }).orElse(30);
         if (StringUtils.isBlank(url)) {
             return ServerResponse.badRequest().bodyValue(Map.of("error", "url 参数不能为空"));
         }
@@ -70,8 +63,20 @@ public class UmamiEndpoint implements CustomEndpoint {
             if (!cfg.configured()) {
                 return ServerResponse.ok().bodyValue(Map.of("configured", false));
             }
-            long endAt = System.currentTimeMillis();
-            long startAt = endAt - days * 86_400_000L;
+            // 优先使用 startAt/endAt（毫秒时间戳）自定义范围，否则按 days 推算
+            long endAt = request.queryParam("endAt").map(Long::parseLong)
+                .orElseGet(System::currentTimeMillis);
+            long startAt = request.queryParam("startAt").map(Long::parseLong)
+                .orElseGet(() -> {
+                    int days = request.queryParam("days").map(v -> {
+                        try {
+                            return Math.min(Math.max(Integer.parseInt(v), 1), 365);
+                        } catch (NumberFormatException e) {
+                            return 30;
+                        }
+                    }).orElse(30);
+                    return endAt - days * 86_400_000L;
+                });
             Mono<String> pageviews = queryUmami(cfg, "/api/websites/{id}/pageviews", startAt, endAt, url, "day");
 
             Mono<String> stats = queryUmami(cfg, "/api/websites/{id}/stats", startAt, endAt, url, null);
