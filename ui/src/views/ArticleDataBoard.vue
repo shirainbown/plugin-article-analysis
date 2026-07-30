@@ -336,7 +336,7 @@ const avgDuration = computed(() => avgDurationOf(trendStats.value));
 
 // 图表
 const CHART_W = 600;
-const CHART_H = 200;
+const CHART_H = 260;
 const CHART_PAD = 12;
 
 const chartPoints = computed(() => {
@@ -873,7 +873,7 @@ onMounted(() => {
             <!-- 发布至今总数据（Halo） -->
             <div class="drawer-section-title">发布至今总数据</div>
             <div class="drawer-stats">
-              <div class="drawer-stat">
+              <div class="drawer-stat drawer-stat-primary">
                 <div class="drawer-stat-value">{{ drawerPost.visit }}</div>
                 <div class="drawer-stat-label">阅读量</div>
               </div>
@@ -1357,7 +1357,7 @@ a.title-link:hover {
 }
 
 .aa-drawer {
-  width: 46rem;
+  width: 62rem;
   max-width: 92vw;
   height: 100%;
   background: #fff;
@@ -1382,12 +1382,12 @@ a.title-link:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.125rem 1.5rem;
+  padding: 1.375rem 2rem;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .drawer-title {
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: #111827;
   overflow: hidden;
@@ -1400,8 +1400,8 @@ a.title-link:hover {
   border: none;
   cursor: pointer;
   color: #6b7280;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
   flex-shrink: 0;
 }
 
@@ -1417,43 +1417,55 @@ a.title-link:hover {
 .drawer-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
+  font-size: 0.9375rem;
 }
 
 .drawer-section-title {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: #111827;
-  margin: 1.5rem 0 0.875rem;
-  padding-left: 0.625rem;
-  border-left: 3px solid #4ccba0;
+  margin: 1.75rem 0 1rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid #4ccba0;
   line-height: 1.2;
 }
 
 .drawer-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .drawer-stat {
   background: #f9fafb;
-  border-radius: 0.625rem;
-  padding: 1.25rem;
+  border-radius: 0.75rem;
+  padding: 1.5rem 1rem;
   text-align: center;
 }
 
 .drawer-stat-value {
-  font-size: 1.75rem;
+  font-size: 2.25rem;
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
 }
 
 .drawer-stat-label {
-  margin-top: 0.375rem;
-  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
   color: #6b7280;
+}
+
+/* 主指标强调 */
+.drawer-stat-primary {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.drawer-stat-primary .drawer-stat-value {
+  color: #059669;
 }
 
 /* 时间范围 */
@@ -1466,8 +1478,8 @@ a.title-link:hover {
 }
 
 .range-btn {
-  padding: 0.4375rem 1rem;
-  font-size: 0.875rem;
+  padding: 0.5rem 1.125rem;
+  font-size: 0.9375rem;
   color: #6b7280;
   background: #f3f4f6;
   border: none;
@@ -1486,9 +1498,9 @@ a.title-link:hover {
 }
 
 .date-input {
-  height: 2.25rem;
+  height: 2.375rem;
   padding: 0 0.625rem;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: #374151;
   background: #fff;
   border: 1px solid #d1d5db;
@@ -1504,28 +1516,29 @@ a.title-link:hover {
 .period-stats {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 0.625rem;
-  margin-bottom: 1rem;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
 }
 
 .period-stat {
   background: #f9fafb;
-  border-radius: 0.625rem;
-  padding: 0.875rem 0.5rem;
+  border-radius: 0.75rem;
+  padding: 1.125rem 0.5rem;
   text-align: center;
 }
 
 .period-stat-value {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .period-stat-label {
-  margin-top: 0.375rem;
-  font-size: 0.75rem;
+  margin-top: 0.4375rem;
+  font-size: 0.8125rem;
   color: #6b7280;
   white-space: nowrap;
 }
@@ -1541,8 +1554,8 @@ a.title-link:hover {
 }
 
 .view-tab {
-  padding: 0.4375rem 1.125rem;
-  font-size: 0.875rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9375rem;
   color: #6b7280;
   background: none;
   border: none;
@@ -1558,8 +1571,8 @@ a.title-link:hover {
 }
 
 .trend-hint {
-  padding: 1.5rem 1rem;
-  font-size: 0.8125rem;
+  padding: 2rem 1.25rem;
+  font-size: 0.9375rem;
   color: #6b7280;
   background: #f9fafb;
   border-radius: 0.5rem;
@@ -1583,8 +1596,8 @@ a.title-link:hover {
 .trend-axis {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.375rem;
-  font-size: 0.6875rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
   color: #9ca3af;
 }
 
@@ -1599,14 +1612,14 @@ a.title-link:hover {
 .daily-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 .daily-table th {
   position: sticky;
   top: 0;
   background: #f9fafb;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.125rem;
   text-align: left;
   font-weight: 500;
   color: #6b7280;
@@ -1619,7 +1632,7 @@ a.title-link:hover {
 }
 
 .daily-table td {
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 1.125rem;
   color: #374151;
   border-bottom: 1px solid #f3f4f6;
   font-variant-numeric: tabular-nums;
