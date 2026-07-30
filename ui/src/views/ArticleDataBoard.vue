@@ -329,7 +329,7 @@ const avgDuration = computed(() => {
 
 // 图表
 const CHART_W = 600;
-const CHART_H = 180;
+const CHART_H = 200;
 const CHART_PAD = 12;
 
 const chartPoints = computed(() => {
@@ -761,8 +761,8 @@ onMounted(fetchAllPosts);
 </template>
 <style scoped>
 .article-analysis {
-  padding: 1.25rem;
-  max-width: 90rem;
+  padding: 1.5rem 2rem;
+  max-width: 100rem;
   margin: 0 auto;
 }
 
@@ -770,26 +770,26 @@ onMounted(fetchAllPosts);
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .summary-card {
   background: #fff;
   border: 1px solid #f0f0f0;
-  border-radius: 0.625rem;
-  padding: 1.125rem 1.5rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
 }
 
 .summary-label {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: #6b7280;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.625rem;
 }
 
 .summary-value {
-  font-size: 1.75rem;
+  font-size: 2.25rem;
   font-weight: 700;
   color: #111827;
   line-height: 1.2;
@@ -806,8 +806,8 @@ onMounted(fetchAllPosts);
 }
 
 .phase-tab {
-  padding: 0.625rem 1rem;
-  font-size: 0.875rem;
+  padding: 0.75rem 1.125rem;
+  font-size: 0.9375rem;
   color: #6b7280;
   background: none;
   border: none;
@@ -851,10 +851,10 @@ onMounted(fetchAllPosts);
 }
 
 .search-input {
-  height: 2.125rem;
-  width: 15rem;
-  padding: 0 0.625rem 0 2rem;
-  font-size: 0.875rem;
+  height: 2.375rem;
+  width: 17rem;
+  padding: 0 0.75rem 0 2.125rem;
+  font-size: 0.9375rem;
   background-color: #fff;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
@@ -867,9 +867,9 @@ onMounted(fetchAllPosts);
 }
 
 .filter-select {
-  height: 2.125rem;
-  padding: 0 0.5rem;
-  font-size: 0.875rem;
+  height: 2.375rem;
+  padding: 0 0.625rem;
+  font-size: 0.9375rem;
   color: #374151;
   background-color: #fff;
   border: 1px solid #d1d5db;
@@ -885,33 +885,33 @@ onMounted(fetchAllPosts);
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 /* 列宽分配：固定列给足宽度，标题列吃剩余空间 */
 .data-table .col-num {
-  width: 4.5rem;
-}
-
-.data-table .col-status {
   width: 5rem;
 }
 
+.data-table .col-status {
+  width: 5.5rem;
+}
+
 .data-table .col-category {
-  width: 7rem;
+  width: 7.5rem;
 }
 
 .data-table .col-time {
-  width: 9.5rem;
+  width: 10.5rem;
 }
 
 .data-table .col-action {
-  width: 8.5rem;
+  width: 9.5rem;
 }
 
 .data-table th {
-  padding: 0.75rem 0.875rem;
-  font-size: 0.8125rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: #6b7280;
   white-space: nowrap;
@@ -945,7 +945,7 @@ onMounted(fetchAllPosts);
 }
 
 .data-table td {
-  padding: 0.875rem;
+  padding: 1rem;
   border-bottom: 1px solid #f3f4f6;
   color: #374151;
   vertical-align: middle;
@@ -970,9 +970,9 @@ onMounted(fetchAllPosts);
 }
 
 .cover {
-  width: 4.5rem;
-  height: 2.8125rem;
-  border-radius: 0.375rem;
+  width: 6rem;
+  height: 3.75rem;
+  border-radius: 0.5rem;
   object-fit: cover;
   flex-shrink: 0;
   background: #f3f4f6;
@@ -982,7 +982,7 @@ onMounted(fetchAllPosts);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: #9ca3af;
 }
 
@@ -996,8 +996,9 @@ onMounted(fetchAllPosts);
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: #111827;
+  font-size: 0.9375rem;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.5;
   text-decoration: none;
   word-break: break-all;
 }
@@ -1016,7 +1017,7 @@ a.title-link:hover {
 .time-cell {
   white-space: nowrap;
   color: #6b7280;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .muted {
@@ -1032,7 +1033,8 @@ a.title-link:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.125rem;
-  margin-right: 0.875rem;
+  margin-right: 1rem;
+  font-size: 0.875rem;
   color: #4ccba0;
   text-decoration: none;
   cursor: pointer;
@@ -1083,7 +1085,7 @@ a.title-link:hover {
 }
 
 .aa-drawer {
-  width: 42rem;
+  width: 46rem;
   max-width: 92vw;
   height: 100%;
   background: #fff;
@@ -1136,7 +1138,7 @@ a.title-link:hover {
 }
 
 .drawer-body {
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem 2rem;
   overflow-y: auto;
 }
 
@@ -1164,21 +1166,21 @@ a.title-link:hover {
 
 .drawer-stat {
   background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 1rem;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
   text-align: center;
 }
 
 .drawer-stat-value {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
 }
 
 .drawer-stat-label {
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
   color: #6b7280;
 }
 
@@ -1192,8 +1194,8 @@ a.title-link:hover {
 }
 
 .range-btn {
-  padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
+  padding: 0.4375rem 1rem;
+  font-size: 0.875rem;
   color: #6b7280;
   background: #f3f4f6;
   border: none;
@@ -1212,9 +1214,9 @@ a.title-link:hover {
 }
 
 .date-input {
-  height: 2rem;
-  padding: 0 0.5rem;
-  font-size: 0.8125rem;
+  height: 2.25rem;
+  padding: 0 0.625rem;
+  font-size: 0.875rem;
   color: #374151;
   background: #fff;
   border: 1px solid #d1d5db;
@@ -1236,13 +1238,13 @@ a.title-link:hover {
 
 .period-stat {
   background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 0.75rem 0.5rem;
+  border-radius: 0.625rem;
+  padding: 0.875rem 0.5rem;
   text-align: center;
 }
 
 .period-stat-value {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
@@ -1250,8 +1252,8 @@ a.title-link:hover {
 }
 
 .period-stat-label {
-  margin-top: 0.25rem;
-  font-size: 0.6875rem;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
   color: #6b7280;
   white-space: nowrap;
 }
@@ -1267,8 +1269,8 @@ a.title-link:hover {
 }
 
 .view-tab {
-  padding: 0.375rem 1rem;
-  font-size: 0.8125rem;
+  padding: 0.4375rem 1.125rem;
+  font-size: 0.875rem;
   color: #6b7280;
   background: none;
   border: none;
@@ -1325,14 +1327,14 @@ a.title-link:hover {
 .daily-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .daily-table th {
   position: sticky;
   top: 0;
   background: #f9fafb;
-  padding: 0.625rem 0.875rem;
+  padding: 0.75rem 1rem;
   text-align: left;
   font-weight: 500;
   color: #6b7280;
@@ -1345,7 +1347,7 @@ a.title-link:hover {
 }
 
 .daily-table td {
-  padding: 0.5rem 0.875rem;
+  padding: 0.625rem 1rem;
   color: #374151;
   border-bottom: 1px solid #f3f4f6;
   font-variant-numeric: tabular-nums;
