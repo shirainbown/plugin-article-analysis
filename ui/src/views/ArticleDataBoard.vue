@@ -304,28 +304,35 @@ const trendTotal = computed(() => trendSeries.value.reduce((s, i) => s + i.y, 0)
 const trendMax = computed(() => Math.max(0, ...trendSeries.value.map((i) => i.y)));
 
 // Umami stats 数值兼容（部分版本返回 {value, prev} 对象）
-function statValue(key: string): number {
-  const s = trendStats.value as Record<string, unknown> | null;
+function numFromStats(s: Record<string, unknown> | null, key: string): number {
   if (!s) return 0;
   const v = s[key] as { value?: number } | number | undefined;
   if (v == null) return 0;
   return typeof v === 'object' ? (v.value ?? 0) : v;
 }
 
-const bounceRate = computed(() => {
-  const visits = statValue('visits');
-  if (!visits) return '-';
-  return ((statValue('bounces') / visits) * 100).toFixed(1) + '%';
-});
+function statValue(key: string): number {
+  return numFromStats(trendStats.value, key);
+}
 
-const avgDuration = computed(() => {
-  const visits = statValue('visits');
+function bounceRateOf(stats: Record<string, unknown> | null): string {
+  const visits = numFromStats(stats, 'visits');
   if (!visits) return '-';
-  const sec = Math.round(statValue('totaltime') / visits);
+  return ((numFromStats(stats, 'bounces') / visits) * 100).toFixed(1) + '%';
+}
+
+function avgDurationOf(stats: Record<string, unknown> | null): string {
+  const visits = numFromStats(stats, 'visits');
+  if (!visits) return '-';
+  const sec = Math.round(numFromStats(stats, 'totaltime') / visits);
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return m > 0 ? `${m}分${s}秒` : `${s}秒`;
-});
+}
+
+const bounceRate = computed(() => bounceRateOf(trendStats.value));
+
+const avgDuration = computed(() => avgDurationOf(trendStats.value));
 
 // 图表
 const CHART_W = 600;
@@ -350,6 +357,121 @@ const chartArea = computed(() => {
   const first = chartPoints.value.split(' ')[0].split(',')[0];
   const last = chartPoints.value.split(' ').pop()!.split(',')[0];
   return `${first},${CHART_H - CHART_PAD} ${chartPoints.value} ${last},${CHART_H - CHART_PAD}`;
+});
+
+// ==================== 全站作品数据视图（趋势图 / 数据列表） ====================
+type MainView = 'trend' | 'daily' | 'articles';
+const mainView = ref<MainView>('trend');
+
+const siteRangeMode = ref<'7' | '30' | '90' | 'custom'>('7');
+const siteCustomStart = ref(dayjs().subtract(7, 'day').format('YYYY-MM-DD'));
+const siteCustomEnd = ref(dayjs().format('YYYY-MM-DD'));
+const siteLoading = ref(false);
+const siteSeries = ref<TrendPoint[]>([]);
+const siteSessions = ref<TrendPoint[]>([]);
+const siteStats = ref<Record<string, unknown> | null>(null);
+const siteError = ref('');
+const siteUmamiConfigured = ref(true);
+
+function setSiteRangeMode(mode: '7' | '30' | '90' | 'custom') {
+  siteRangeMode.value = mode;
+  if (mode !== 'custom') {
+    fetchSiteTrend();
+  }
+}
+
+function applySiteCustomRange() {
+  if (!siteCustomStart.value || !siteCustomEnd.value) {
+    Toast.warning('请选择开始和结束日期');
+    return;
+  }
+  if (dayjs(siteCustomStart.value).isAfter(dayjs(siteCustomEnd.value))) {
+    Toast.warning('开始日期不能晚于结束日期');
+    return;
+  }
+  fetchSiteTrend();
+}
+
+function currentSiteRange(): { startAt: number; endAt: number } {
+  if (siteRangeMode.value === 'custom') {
+    return {
+      startAt: dayjs(siteCustomStart.value).startOf('day').valueOf(),
+      endAt: dayjs(siteCustomEnd.value).endOf('day').valueOf(),
+    };
+  }
+  const endAt = Date.now();
+  return { startAt: endAt - Number(siteRangeMode.value) * 86_400_000, endAt };
+}
+
+async function fetchSiteTrend() {
+  siteLoading.value = true;
+  siteError.value = '';
+  try {
+    const { startAt, endAt } = currentSiteRange();
+    // url 传空 = 全站数据（后端不过滤 path）
+    const { data } = await axiosInstance.get(
+      '/apis/api.article-analysis.run.halo/v1alpha1/umami/pageviews',
+      { params: { url: '', startAt, endAt } }
+    );
+    if (!data.configured) {
+      siteUmamiConfigured.value = false;
+      siteSeries.value = [];
+      siteSessions.value = [];
+      siteStats.value = null;
+      return;
+    }
+    siteUmamiConfigured.value = true;
+    if (data.error) {
+      siteError.value = String(data.error);
+    }
+    siteSeries.value = data.pageviews?.pageviews || [];
+    siteSessions.value = data.pageviews?.sessions || [];
+    siteStats.value = data.stats || null;
+  } catch (e) {
+    console.error('全站趋势数据加载失败', e);
+    siteError.value = '趋势数据加载失败';
+  } finally {
+    siteLoading.value = false;
+  }
+}
+
+const siteChartPoints = computed(() => {
+  const arr = siteSeries.value;
+  if (!arr.length) return '';
+  const max = Math.max(...arr.map((i) => i.y), 1);
+  const step = (CHART_W - CHART_PAD * 2) / Math.max(arr.length - 1, 1);
+  return arr
+    .map(
+      (i, idx) =>
+        `${(CHART_PAD + idx * step).toFixed(1)},${(CHART_H - CHART_PAD - (i.y / max) * (CHART_H - CHART_PAD * 2)).toFixed(1)}`
+    )
+    .join(' ');
+});
+
+const siteChartArea = computed(() => {
+  if (!siteChartPoints.value) return '';
+  const first = siteChartPoints.value.split(' ')[0].split(',')[0];
+  const last = siteChartPoints.value.split(' ').pop()!.split(',')[0];
+  return `${first},${CHART_H - CHART_PAD} ${siteChartPoints.value} ${last},${CHART_H - CHART_PAD}`;
+});
+
+const siteTrendDates = computed(() => {
+  const arr = siteSeries.value;
+  if (!arr.length) return { first: '', last: '' };
+  return { first: formatAxisDate(arr[0].x), last: formatAxisDate(arr[arr.length - 1].x) };
+});
+
+const siteTrendMax = computed(() => Math.max(0, ...siteSeries.value.map((i) => i.y)));
+
+const siteDailyRows = computed(() => {
+  const sessions = new Map(siteSessions.value.map((s) => [s.x, s.y]));
+  return siteSeries.value
+    .map((p) => ({
+      date: dayjs(p.x).format('YYYY-MM-DD'),
+      views: p.y,
+      sessions: sessions.get(p.x) ?? 0,
+    }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 });
 
 function formatAxisDate(x: string) {
@@ -405,7 +527,10 @@ function exportCsv() {
   Toast.success(`已导出 ${lines.length} 篇文章数据`);
 }
 
-onMounted(fetchAllPosts);
+onMounted(() => {
+  fetchAllPosts();
+  fetchSiteTrend();
+});
 </script>
 <template>
   <VPageHeader title="文章数据">
@@ -442,6 +567,138 @@ onMounted(fetchAllPosts);
     </div>
 
     <VCard title="文章数据">
+      <!-- 视图切换 + 时间范围（对齐 CSDN 作品数据） -->
+      <div class="view-bar">
+        <div class="view-tabs">
+          <button
+            class="view-tab"
+            :class="{ active: mainView === 'trend' }"
+            @click="mainView = 'trend'"
+          >
+            趋势图
+          </button>
+          <button
+            class="view-tab"
+            :class="{ active: mainView === 'daily' }"
+            @click="mainView = 'daily'"
+          >
+            数据列表
+          </button>
+          <button
+            class="view-tab"
+            :class="{ active: mainView === 'articles' }"
+            @click="mainView = 'articles'"
+          >
+            单篇文章分析
+          </button>
+        </div>
+        <div v-if="mainView !== 'articles'" class="range-bar">
+          <button
+            v-for="m in [
+              { key: '7', label: '近7天' },
+              { key: '30', label: '近30天' },
+              { key: '90', label: '近90天' },
+            ]"
+            :key="m.key"
+            class="range-btn"
+            :class="{ active: siteRangeMode === m.key }"
+            @click="setSiteRangeMode(m.key as '7' | '30' | '90')"
+          >
+            {{ m.label }}
+          </button>
+          <button
+            class="range-btn"
+            :class="{ active: siteRangeMode === 'custom' }"
+            @click="setSiteRangeMode('custom')"
+          >
+            自定义
+          </button>
+          <template v-if="siteRangeMode === 'custom'">
+            <input v-model="siteCustomStart" type="date" class="date-input" />
+            <span class="muted">至</span>
+            <input v-model="siteCustomEnd" type="date" class="date-input" />
+            <VButton size="sm" @click="applySiteCustomRange">查询</VButton>
+          </template>
+        </div>
+      </div>
+
+      <!-- ========== 趋势图视图（全站） ========== -->
+      <template v-if="mainView === 'trend'">
+        <div v-if="!siteUmamiConfigured" class="trend-hint">
+          未配置 Umami。请在「插件 → 文章数据分析 → 设置」中填写 Umami 服务地址、站点
+          ID 和 API Key 后查看趋势数据。
+        </div>
+        <VLoading v-else-if="siteLoading" />
+        <div v-else-if="siteError" class="trend-hint">趋势数据加载失败：{{ siteError }}</div>
+        <div v-else-if="!siteSeries.length" class="trend-hint">该时间段内暂无访问数据</div>
+        <template v-else>
+          <div class="period-stats">
+            <div class="period-stat">
+              <div class="period-stat-value">{{ siteSeries.reduce((s, i) => s + i.y, 0) }}</div>
+              <div class="period-stat-label">浏览量</div>
+            </div>
+            <div class="period-stat">
+              <div class="period-stat-value">{{ numFromStats(siteStats, 'visitors') }}</div>
+              <div class="period-stat-label">访客数</div>
+            </div>
+            <div class="period-stat">
+              <div class="period-stat-value">{{ numFromStats(siteStats, 'visits') }}</div>
+              <div class="period-stat-label">访问次数</div>
+            </div>
+            <div class="period-stat">
+              <div class="period-stat-value">{{ bounceRateOf(siteStats) }}</div>
+              <div class="period-stat-label">跳出率</div>
+            </div>
+            <div class="period-stat">
+              <div class="period-stat-value">{{ avgDurationOf(siteStats) }}</div>
+              <div class="period-stat-label">平均访问时长</div>
+            </div>
+          </div>
+          <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
+            <defs>
+              <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
+              </linearGradient>
+            </defs>
+            <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" />
+            <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" />
+          </svg>
+          <div class="trend-axis">
+            <span>{{ siteTrendDates.first }}</span>
+            <span>峰值 {{ siteTrendMax }}</span>
+            <span>{{ siteTrendDates.last }}</span>
+          </div>
+        </template>
+      </template>
+
+      <!-- ========== 数据列表视图（全站按天） ========== -->
+      <template v-else-if="mainView === 'daily'">
+        <div v-if="!siteUmamiConfigured" class="trend-hint">未配置 Umami。</div>
+        <VLoading v-else-if="siteLoading" />
+        <div v-else-if="!siteDailyRows.length" class="trend-hint">该时间段内暂无访问数据</div>
+        <div v-else class="daily-table-wrapper">
+          <table class="daily-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th class="col-center">浏览量</th>
+                <th class="col-center">访问次数</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in siteDailyRows" :key="row.date">
+                <td>{{ row.date }}</td>
+                <td class="col-center">{{ row.views }}</td>
+                <td class="col-center">{{ row.sessions }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
+      <!-- ========== 单篇文章分析视图 ========== -->
+      <template v-else>
       <!-- 状态页签 -->
       <div class="phase-tabs">
         <button
@@ -581,6 +838,7 @@ onMounted(fetchAllPosts);
             <VButton size="sm" :disabled="page >= totalPages" @click="changePage(1)">下一页</VButton>
           </div>
         </div>
+      </template>
       </template>
     </VCard>
 
@@ -794,6 +1052,20 @@ onMounted(fetchAllPosts);
   color: #111827;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+}
+
+/* ==================== 视图切换栏 ==================== */
+.view-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.view-bar .range-bar {
+  margin-left: auto;
+  margin-bottom: 0;
 }
 
 /* ==================== 状态页签 + 工具栏 ==================== */

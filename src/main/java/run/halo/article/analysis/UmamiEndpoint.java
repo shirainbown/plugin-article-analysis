@@ -55,10 +55,8 @@ public class UmamiEndpoint implements CustomEndpoint {
     }
 
     private Mono<ServerResponse> getPageviews(ServerRequest request) {
+        // url 可选：传入时按文章路径过滤，不传则返回全站数据
         String url = request.queryParam("url").orElse("");
-        if (StringUtils.isBlank(url)) {
-            return ServerResponse.badRequest().bodyValue(Map.of("error", "url 参数不能为空"));
-        }
         return loadUmamiConfig().flatMap(cfg -> {
             if (!cfg.configured()) {
                 return ServerResponse.ok().bodyValue(Map.of("configured", false));
@@ -105,9 +103,11 @@ public class UmamiEndpoint implements CustomEndpoint {
             .uri(builder -> {
                 var b = builder.path(path)
                     .queryParam("startAt", startAt)
-                    .queryParam("endAt", endAt)
+                    .queryParam("endAt", endAt);
+                if (StringUtils.isNotBlank(url)) {
                     // Umami 按 URL 过滤的参数名是 path（不是 url）
-                    .queryParam("path", url);
+                    b.queryParam("path", url);
+                }
                 if (unit != null) {
                     b.queryParam("unit", unit);
                 }
