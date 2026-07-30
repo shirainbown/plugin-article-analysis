@@ -301,8 +301,6 @@ async function fetchTrend() {
 }
 
 const trendTotal = computed(() => trendSeries.value.reduce((s, i) => s + i.y, 0));
-const trendMax = computed(() => Math.max(0, ...trendSeries.value.map((i) => i.y)));
-
 // Umami stats 数值兼容（部分版本返回 {value, prev} 对象）
 function numFromStats(s: Record<string, unknown> | null, key: string): number {
   if (!s) return 0;
@@ -338,6 +336,26 @@ const avgDuration = computed(() => avgDurationOf(trendStats.value));
 const CHART_W = 600;
 const CHART_H = 260;
 const CHART_PAD = 12;
+// 网格线纵向位置（顶部 / 中线 / 基线）
+const GRID_YS = [CHART_PAD, CHART_H / 2, CHART_H - CHART_PAD];
+
+// Y 轴刻度文本（大数值缩写）
+function formatYTick(v: number): string {
+  const r = Math.round(v);
+  return r >= 10000 ? `${(r / 1000).toFixed(1)}k` : String(r);
+}
+
+// 由序列生成坐标轴信息：Y 轴三档刻度 + X 轴首/中/尾日期
+function axisOf(arr: TrendPoint[]) {
+  const max = Math.max(0, ...arr.map((i) => i.y));
+  const mid = arr.length ? arr[Math.floor((arr.length - 1) / 2)] : null;
+  return {
+    yTicks: [formatYTick(max), formatYTick(max / 2), '0'],
+    first: arr.length ? formatAxisDate(arr[0].x) : '',
+    mid: mid ? formatAxisDate(mid.x) : '',
+    last: arr.length ? formatAxisDate(arr[arr.length - 1].x) : '',
+  };
+}
 
 const chartPoints = computed(() => {
   const arr = trendSeries.value;
@@ -455,13 +473,7 @@ const siteChartArea = computed(() => {
   return `${first},${CHART_H - CHART_PAD} ${siteChartPoints.value} ${last},${CHART_H - CHART_PAD}`;
 });
 
-const siteTrendDates = computed(() => {
-  const arr = siteSeries.value;
-  if (!arr.length) return { first: '', last: '' };
-  return { first: formatAxisDate(arr[0].x), last: formatAxisDate(arr[arr.length - 1].x) };
-});
-
-const siteTrendMax = computed(() => Math.max(0, ...siteSeries.value.map((i) => i.y)));
+const siteAxis = computed(() => axisOf(siteSeries.value));
 
 const siteDailyRows = computed(() => {
   const sessions = new Map(siteSessions.value.map((s) => [s.x, s.y]));
@@ -478,11 +490,7 @@ function formatAxisDate(x: string) {
   return dayjs(x).format('MM-DD');
 }
 
-const trendDates = computed(() => {
-  const arr = trendSeries.value;
-  if (!arr.length) return { first: '', last: '' };
-  return { first: formatAxisDate(arr[0].x), last: formatAxisDate(arr[arr.length - 1].x) };
-});
+const drawerAxis = computed(() => axisOf(trendSeries.value));
 
 // 数据列表（每日明细，倒序）
 const dailyRows = computed(() => {
@@ -656,20 +664,38 @@ onMounted(() => {
           </div>
           <!-- 图表区与列表区固定同高，切换页签不再跳动 -->
           <div v-if="mainView === 'trend'" class="trend-chart-box">
-            <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
-                  <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
-                </linearGradient>
-              </defs>
-              <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" vector-effect="non-scaling-stroke" />
-              <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" vector-effect="non-scaling-stroke" />
-            </svg>
+            <div class="chart-plot">
+              <!-- Y 轴刻度（HTML 覆盖层，避免 SVG 拉伸导致文字变形） -->
+              <div class="chart-y">
+                <span v-for="t in siteAxis.yTicks" :key="t">{{ t }}</span>
+              </div>
+              <div class="chart-canvas">
+                <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
+                      <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <line
+                    v-for="y in GRID_YS"
+                    :key="y"
+                    :x1="CHART_PAD"
+                    :x2="CHART_W - CHART_PAD"
+                    :y1="y"
+                    :y2="y"
+                    class="chart-grid-line"
+                    vector-effect="non-scaling-stroke"
+                  />
+                  <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" vector-effect="non-scaling-stroke" />
+                  <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" vector-effect="non-scaling-stroke" />
+                </svg>
+              </div>
+            </div>
             <div class="trend-axis">
-              <span>{{ siteTrendDates.first }}</span>
-              <span>峰值 {{ siteTrendMax }}</span>
-              <span>{{ siteTrendDates.last }}</span>
+              <span>{{ siteAxis.first }}</span>
+              <span>{{ siteAxis.mid }}</span>
+              <span>{{ siteAxis.last }}</span>
             </div>
           </div>
           <div v-else class="daily-table-wrapper site-daily">
@@ -969,20 +995,38 @@ onMounted(() => {
 
                 <!-- 趋势图 -->
                 <template v-if="drawerView === 'chart'">
-                  <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
-                    <defs>
-                      <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
-                        <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
-                      </linearGradient>
-                    </defs>
-                    <polygon v-if="chartArea" :points="chartArea" fill="url(#trendFill)" />
-                    <polyline v-if="chartPoints" :points="chartPoints" class="trend-line" />
-                  </svg>
+                  <div class="chart-plot">
+                    <!-- Y 轴刻度 -->
+                    <div class="chart-y">
+                      <span v-for="t in drawerAxis.yTicks" :key="t">{{ t }}</span>
+                    </div>
+                    <div class="chart-canvas">
+                      <svg class="trend-chart auto-h" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
+                        <defs>
+                          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
+                            <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
+                          </linearGradient>
+                        </defs>
+                        <line
+                          v-for="y in GRID_YS"
+                          :key="y"
+                          :x1="CHART_PAD"
+                          :x2="CHART_W - CHART_PAD"
+                          :y1="y"
+                          :y2="y"
+                          class="chart-grid-line"
+                          vector-effect="non-scaling-stroke"
+                        />
+                        <polygon v-if="chartArea" :points="chartArea" fill="url(#trendFill)" />
+                        <polyline v-if="chartPoints" :points="chartPoints" class="trend-line" />
+                      </svg>
+                    </div>
+                  </div>
                   <div class="trend-axis">
-                    <span>{{ trendDates.first }}</span>
-                    <span>峰值 {{ trendMax }}</span>
-                    <span>{{ trendDates.last }}</span>
+                    <span>{{ drawerAxis.first }}</span>
+                    <span>{{ drawerAxis.mid }}</span>
+                    <span>{{ drawerAxis.last }}</span>
                   </div>
                 </template>
 
@@ -1596,28 +1640,82 @@ a.title-link:hover {
   display: flex;
   justify-content: space-between;
   margin-top: 0.5rem;
+  /* 与 Y 轴刻度列对齐 */
+  padding-left: 3.25rem;
   font-size: 0.8125rem;
   color: #9ca3af;
 }
 
-/* 图表区与列表区统一高度（与单篇文章分析视图一致），切换不跳动 */
+/* 图表区与列表区统一高度（与单篇文章分析视图协调），整页一屏可见，切换不跳动 */
 .trend-chart-box {
-  height: 53.7rem;
+  height: 21.5rem;
   display: flex;
   flex-direction: column;
 }
 
-.trend-chart-box .trend-chart {
+/* 绘图区：Y 轴刻度列 + 画布 */
+.chart-plot {
   flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chart-y {
+  position: relative;
+  min-width: 2.75rem;
+  text-align: right;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 刻度中心与网格线纵坐标（CHART_PAD/CHART_H、50%、基线）对齐 */
+.chart-y span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.chart-y span:nth-child(1) {
+  top: 4.62%;
+}
+
+.chart-y span:nth-child(2) {
+  top: 50%;
+}
+
+.chart-y span:nth-child(3) {
+  top: 95.38%;
+}
+
+.chart-canvas {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.chart-canvas .trend-chart {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-/* 主页面数据列表加高（抽屉内保持 22rem） */
+/* 抽屉内保持宽高比自适应 */
+.chart-canvas .trend-chart.auto-h {
+  height: auto;
+}
+
+.chart-grid-line {
+  stroke: #e5e7eb;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+/* 主页面数据列表与图表区同高（含 X 轴行高约 1.5rem，抽屉内保持 22rem） */
 .daily-table-wrapper.site-daily {
-  height: 53.7rem;
+  height: 23rem;
 }
 
 /* 每日数据列表 */
