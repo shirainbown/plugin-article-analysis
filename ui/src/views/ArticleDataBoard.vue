@@ -1607,7 +1607,6 @@ a.title-link:hover {
 .daily-table-wrapper {
   height: 22rem;
   overflow-y: auto;
-  scrollbar-gutter: stable;
   border: 1px solid #f3f4f6;
   border-radius: 0.5rem;
 }
