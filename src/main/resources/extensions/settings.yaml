@@ -1,0 +1,24 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: article-analysis-settings
+spec:
+  forms:
+    - group: umami
+      label: Umami 统计
+      formSchema:
+        - $formkit: text
+          name: serverUrl
+          label: Umami 服务地址
+          value: ""
+          help: 例如 https://umami.example.com（不含末尾斜杠）；配置后文章数据抽屉中可显示访问趋势
+        - $formkit: text
+          name: websiteId
+          label: 站点 ID（Website ID）
+          value: ""
+          help: Umami 网站详情中的 Website ID（UUID 格式）
+        - $formkit: password
+          name: apiKey
+          label: API Key
+          value: ""
+          help: Umami 后台「设置 → API keys」中创建；仅用于服务端代理查询，不会下发到前端
