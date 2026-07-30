@@ -1016,6 +1016,8 @@ onMounted(() => {
 <style scoped>
 .article-analysis {
   padding: 1.5rem 2rem;
+  /* 父容器是 flex 布局，缺省宽度由内容决定，数据列表页会收缩变窄，需显式撑满 */
+  width: 100%;
   max-width: 100rem;
   margin: 0 auto;
 }
