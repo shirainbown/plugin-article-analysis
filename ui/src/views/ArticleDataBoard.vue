@@ -656,15 +656,15 @@ onMounted(() => {
           </div>
           <!-- 图表区与列表区固定同高，切换页签不再跳动 -->
           <div v-if="mainView === 'trend'" class="trend-chart-box">
-            <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
+            <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
                   <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
                 </linearGradient>
               </defs>
-              <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" />
-              <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" />
+              <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" vector-effect="non-scaling-stroke" />
+              <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" vector-effect="non-scaling-stroke" />
             </svg>
             <div class="trend-axis">
               <span>{{ siteTrendDates.first }}</span>
@@ -672,7 +672,7 @@ onMounted(() => {
               <span>{{ siteTrendDates.last }}</span>
             </div>
           </div>
-          <div v-else class="daily-table-wrapper">
+          <div v-else class="daily-table-wrapper site-daily">
             <table class="daily-table">
               <thead>
                 <tr>
@@ -1598,9 +1598,24 @@ a.title-link:hover {
   color: #9ca3af;
 }
 
-/* 图表区与列表区统一高度，切换不跳动 */
+/* 图表区与列表区统一高度（与单篇文章分析视图一致），切换不跳动 */
 .trend-chart-box {
-  min-height: 22rem;
+  height: 53.7rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-chart-box .trend-chart {
+  flex: 1;
+  min-height: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 主页面数据列表加高（抽屉内保持 22rem） */
+.daily-table-wrapper.site-daily {
+  height: 53.7rem;
 }
 
 /* 每日数据列表 */
