@@ -622,8 +622,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- ========== 趋势图视图（全站） ========== -->
-      <template v-if="mainView === 'trend'">
+      <!-- ========== 全站视图（趋势图 / 数据列表，统计区常驻保持高度一致） ========== -->
+      <template v-if="mainView !== 'articles'">
         <div v-if="!siteUmamiConfigured" class="trend-hint">
           未配置 Umami。请在「插件 → 文章数据分析 → 设置」中填写 Umami 服务地址、站点
           ID 和 API Key 后查看趋势数据。
@@ -654,47 +654,43 @@ onMounted(() => {
               <div class="period-stat-label">平均访问时长</div>
             </div>
           </div>
-          <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
-            <defs>
-              <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
-                <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
-              </linearGradient>
-            </defs>
-            <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" />
-            <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" />
-          </svg>
-          <div class="trend-axis">
-            <span>{{ siteTrendDates.first }}</span>
-            <span>峰值 {{ siteTrendMax }}</span>
-            <span>{{ siteTrendDates.last }}</span>
+          <!-- 图表区与列表区固定同高，切换页签不再跳动 -->
+          <div v-if="mainView === 'trend'" class="trend-chart-box">
+            <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
+              <defs>
+                <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#4ccba0" stop-opacity="0.28" />
+                  <stop offset="100%" stop-color="#4ccba0" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
+              <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" />
+              <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" />
+            </svg>
+            <div class="trend-axis">
+              <span>{{ siteTrendDates.first }}</span>
+              <span>峰值 {{ siteTrendMax }}</span>
+              <span>{{ siteTrendDates.last }}</span>
+            </div>
+          </div>
+          <div v-else class="daily-table-wrapper">
+            <table class="daily-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th class="col-center">浏览量</th>
+                  <th class="col-center">访问次数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in siteDailyRows" :key="row.date">
+                  <td>{{ row.date }}</td>
+                  <td class="col-center">{{ row.views }}</td>
+                  <td class="col-center">{{ row.sessions }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </template>
-      </template>
-
-      <!-- ========== 数据列表视图（全站按天） ========== -->
-      <template v-else-if="mainView === 'daily'">
-        <div v-if="!siteUmamiConfigured" class="trend-hint">未配置 Umami。</div>
-        <VLoading v-else-if="siteLoading" />
-        <div v-else-if="!siteDailyRows.length" class="trend-hint">该时间段内暂无访问数据</div>
-        <div v-else class="daily-table-wrapper">
-          <table class="daily-table">
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th class="col-center">浏览量</th>
-                <th class="col-center">访问次数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in siteDailyRows" :key="row.date">
-                <td>{{ row.date }}</td>
-                <td class="col-center">{{ row.views }}</td>
-                <td class="col-center">{{ row.sessions }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </template>
 
       <!-- ========== 单篇文章分析视图 ========== -->
@@ -1412,6 +1408,7 @@ a.title-link:hover {
 .drawer-body {
   padding: 1.5rem 2rem;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .drawer-meta {
@@ -1601,10 +1598,16 @@ a.title-link:hover {
   color: #9ca3af;
 }
 
+/* 图表区与列表区统一高度，切换不跳动 */
+.trend-chart-box {
+  min-height: 22rem;
+}
+
 /* 每日数据列表 */
 .daily-table-wrapper {
-  max-height: 24rem;
+  height: 22rem;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border: 1px solid #f3f4f6;
   border-radius: 0.5rem;
 }
