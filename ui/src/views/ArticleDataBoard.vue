@@ -357,6 +357,52 @@ function axisOf(arr: TrendPoint[]) {
   };
 }
 
+// ==================== 悬停提示（对齐 CSDN：十字线 + 数据点 + 浮动卡片） ====================
+interface ChartDotPoint {
+  x: number; // 百分比横坐标
+  y: number; // 百分比纵坐标
+  date: string;
+  views: number;
+  sessions: number;
+}
+
+// 序列 → 带百分比坐标与提示数据的点集（sessions 为配套访问次数序列）
+function dotPointsOf(arr: TrendPoint[], sessions: TrendPoint[]): ChartDotPoint[] {
+  if (!arr.length) return [];
+  const max = Math.max(...arr.map((i) => i.y), 1);
+  const step = (CHART_W - CHART_PAD * 2) / Math.max(arr.length - 1, 1);
+  const sessionMap = new Map(sessions.map((s) => [dayjs(s.x).format('YYYY-MM-DD'), s.y]));
+  return arr.map((p, idx) => {
+    const date = dayjs(p.x).format('YYYY-MM-DD');
+    return {
+      x: ((CHART_PAD + idx * step) / CHART_W) * 100,
+      y: ((CHART_H - CHART_PAD - (p.y / max) * (CHART_H - CHART_PAD * 2)) / CHART_H) * 100,
+      date,
+      views: p.y,
+      sessions: sessionMap.get(date) ?? 0,
+    };
+  });
+}
+
+// 鼠标位置 → 最近的数据点下标
+function hoverIdxOf(e: MouseEvent, count: number): number {
+  if (!count) return -1;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * CHART_W;
+  const step = (CHART_W - CHART_PAD * 2) / Math.max(count - 1, 1);
+  return Math.min(count - 1, Math.max(0, Math.round((x - CHART_PAD) / step)));
+}
+
+// 浮动卡片定位：默认在数据点右侧，靠右时翻转到左侧
+function chartTipStyle(p: ChartDotPoint) {
+  const flip = p.x > 60;
+  return {
+    left: `${p.x}%`,
+    top: `${p.y}%`,
+    transform: flip ? 'translate(calc(-100% - 12px), -50%)' : 'translate(12px, -50%)',
+  };
+}
+
 const chartPoints = computed(() => {
   const arr = trendSeries.value;
   if (!arr.length) return '';
@@ -475,6 +521,14 @@ const siteChartArea = computed(() => {
 
 const siteAxis = computed(() => axisOf(siteSeries.value));
 
+// 主视图趋势图悬停状态与点集
+const siteHover = ref(-1);
+const siteDots = computed(() => dotPointsOf(siteSeries.value, siteSessions.value));
+
+function onSiteChartMove(e: MouseEvent) {
+  siteHover.value = hoverIdxOf(e, siteSeries.value.length);
+}
+
 const siteDailyRows = computed(() => {
   const sessions = new Map(siteSessions.value.map((s) => [s.x, s.y]));
   return siteSeries.value
@@ -491,6 +545,14 @@ function formatAxisDate(x: string) {
 }
 
 const drawerAxis = computed(() => axisOf(trendSeries.value));
+
+// 抽屉趋势图悬停状态与点集
+const drawerHover = ref(-1);
+const drawerDots = computed(() => dotPointsOf(trendSeries.value, sessionSeries.value));
+
+function onDrawerChartMove(e: MouseEvent) {
+  drawerHover.value = hoverIdxOf(e, trendSeries.value.length);
+}
 
 // 数据列表（每日明细，倒序）
 const dailyRows = computed(() => {
@@ -669,7 +731,11 @@ onMounted(() => {
               <div class="chart-y">
                 <span v-for="t in siteAxis.yTicks" :key="t">{{ t }}</span>
               </div>
-              <div class="chart-canvas">
+              <div
+                class="chart-canvas"
+                @mousemove="onSiteChartMove"
+                @mouseleave="siteHover = -1"
+              >
                 <svg class="trend-chart" :viewBox="`0 0 ${CHART_W} ${CHART_H}`" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="siteTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -690,6 +756,27 @@ onMounted(() => {
                   <polygon v-if="siteChartArea" :points="siteChartArea" fill="url(#siteTrendFill)" vector-effect="non-scaling-stroke" />
                   <polyline v-if="siteChartPoints" :points="siteChartPoints" class="trend-line" vector-effect="non-scaling-stroke" />
                 </svg>
+                <!-- 悬停：十字线 + 数据点 + 浮动卡片 -->
+                <template v-if="siteHover >= 0 && siteDots[siteHover]">
+                  <div class="chart-crosshair" :style="{ left: siteDots[siteHover].x + '%' }"></div>
+                  <div
+                    class="chart-hover-dot"
+                    :style="{ left: siteDots[siteHover].x + '%', top: siteDots[siteHover].y + '%' }"
+                  ></div>
+                  <div class="chart-tooltip" :style="chartTipStyle(siteDots[siteHover])">
+                    <div class="tt-date">{{ siteDots[siteHover].date }}</div>
+                    <div class="tt-row">
+                      <i class="tt-dot tt-dot-views"></i>
+                      <span class="tt-label">浏览量</span>
+                      <span class="tt-value">{{ siteDots[siteHover].views }}</span>
+                    </div>
+                    <div class="tt-row">
+                      <i class="tt-dot tt-dot-sessions"></i>
+                      <span class="tt-label">访问次数</span>
+                      <span class="tt-value">{{ siteDots[siteHover].sessions }}</span>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
             <div class="trend-axis">
@@ -1000,7 +1087,11 @@ onMounted(() => {
                     <div class="chart-y">
                       <span v-for="t in drawerAxis.yTicks" :key="t">{{ t }}</span>
                     </div>
-                    <div class="chart-canvas">
+                    <div
+                      class="chart-canvas"
+                      @mousemove="onDrawerChartMove"
+                      @mouseleave="drawerHover = -1"
+                    >
                       <svg class="trend-chart auto-h" :viewBox="`0 0 ${CHART_W} ${CHART_H}`">
                         <defs>
                           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
@@ -1021,6 +1112,27 @@ onMounted(() => {
                         <polygon v-if="chartArea" :points="chartArea" fill="url(#trendFill)" />
                         <polyline v-if="chartPoints" :points="chartPoints" class="trend-line" />
                       </svg>
+                      <!-- 悬停：十字线 + 数据点 + 浮动卡片 -->
+                      <template v-if="drawerHover >= 0 && drawerDots[drawerHover]">
+                        <div class="chart-crosshair" :style="{ left: drawerDots[drawerHover].x + '%' }"></div>
+                        <div
+                          class="chart-hover-dot"
+                          :style="{ left: drawerDots[drawerHover].x + '%', top: drawerDots[drawerHover].y + '%' }"
+                        ></div>
+                        <div class="chart-tooltip" :style="chartTipStyle(drawerDots[drawerHover])">
+                          <div class="tt-date">{{ drawerDots[drawerHover].date }}</div>
+                          <div class="tt-row">
+                            <i class="tt-dot tt-dot-views"></i>
+                            <span class="tt-label">浏览量</span>
+                            <span class="tt-value">{{ drawerDots[drawerHover].views }}</span>
+                          </div>
+                          <div class="tt-row">
+                            <i class="tt-dot tt-dot-sessions"></i>
+                            <span class="tt-label">访问次数</span>
+                            <span class="tt-value">{{ drawerDots[drawerHover].sessions }}</span>
+                          </div>
+                        </div>
+                      </template>
                     </div>
                   </div>
                   <div class="trend-axis">
@@ -1711,6 +1823,87 @@ a.title-link:hover {
   stroke: #e5e7eb;
   stroke-width: 1;
   stroke-dasharray: 4 4;
+}
+
+/* 悬停交互（对齐 CSDN：十字线 + 数据点 + 浮动卡片） */
+.chart-canvas {
+  cursor: crosshair;
+}
+
+.chart-crosshair,
+.chart-hover-dot,
+.chart-tooltip {
+  pointer-events: none;
+}
+
+.chart-crosshair {
+  position: absolute;
+  /* 与绘图区上下留白对齐 */
+  top: 4.62%;
+  bottom: 4.62%;
+  border-left: 1px dashed #9ca3af;
+}
+
+.chart-hover-dot {
+  position: absolute;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: #4ccba0;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+  transform: translate(-50%, -50%);
+}
+
+.chart-tooltip {
+  position: absolute;
+  min-width: 9.5rem;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
+  padding: 0.625rem 0.875rem;
+  z-index: 5;
+}
+
+.tt-date {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.375rem;
+}
+
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.7;
+}
+
+.tt-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.tt-dot-views {
+  background: #4ccba0;
+}
+
+.tt-dot-sessions {
+  background: #60a5fa;
+}
+
+.tt-label {
+  flex: 1;
+}
+
+.tt-value {
+  color: #111827;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 主页面数据列表与图表区同高（含 X 轴行高约 1.5rem，抽屉内保持 22rem） */
