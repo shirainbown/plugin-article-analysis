@@ -9,13 +9,13 @@ spec:
   configMapName: article-analysis-configMap
   author:
     name: shirainbown
-    website: https://git.ali.songshiyu.cn
-  logo: ""
-  displayName: 文章数据分析
-  description: 类似 CSDN 的文章数据看板：阅读量、评论、点赞数据一览，支持搜索、筛选与排序。
-  homepage: https://git.ali.songshiyu.cn/ssy/plugin-article-analysis
-  repo: https://git.ali.songshiyu.cn/ssy/plugin-article-analysis
-  issues: https://git.ali.songshiyu.cn/ssy/plugin-article-analysis/issues
+    website: https://github.com/shirainbown
+  logo: logo.svg
+  displayName: 文章数据趋势分析
+  description: 全站与单篇文章的数据趋势看板：浏览量、访客数、访问次数、跳出率、平均访问时长与每日点赞统计，支持筛选、排序与 CSV 导出。
+  homepage: https://github.com/shirainbown/plugin-article-analysis
+  repo: https://github.com/shirainbown/plugin-article-analysis
+  issues: https://github.com/shirainbown/plugin-article-analysis/issues
   version: "@version@"
   license:
     - name: "MIT"

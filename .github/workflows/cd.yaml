@@ -1,0 +1,16 @@
+name: CD
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  cd:
+    uses: halo-sigs/reusable-workflows/.github/workflows/plugin-cd.yaml@v4
+    permissions:
+      contents: write
+    with:
+      ui-path: "ui"
+      # 首次上架审核通过前，仅上传 GitHub Release 资产，不同步应用市场
+      skip-appstore-release: true
