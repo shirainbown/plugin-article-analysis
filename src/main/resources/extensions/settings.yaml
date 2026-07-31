@@ -22,3 +22,11 @@ spec:
           label: API Key
           value: ""
           help: Umami 后台「设置 → API keys」中创建；仅用于服务端代理查询，不会下发到前端
+    - group: upvote
+      label: 点赞统计
+      formSchema:
+        - $formkit: text
+          name: timezone
+          label: 统计时区
+          value: ""
+          help: 每日点赞按此时区的自然日归档，例如 Asia/Shanghai；留空则使用服务器默认时区

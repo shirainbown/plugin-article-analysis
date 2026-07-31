@@ -364,10 +364,15 @@ interface ChartDotPoint {
   date: string;
   views: number;
   sessions: number;
+  upvotes: number;
 }
 
-// 序列 → 带百分比坐标与提示数据的点集（sessions 为配套访问次数序列）
-function dotPointsOf(arr: TrendPoint[], sessions: TrendPoint[]): ChartDotPoint[] {
+// 序列 → 带百分比坐标与提示数据的点集（sessions 为配套访问次数序列，upvotes 为日期→点赞数映射）
+function dotPointsOf(
+  arr: TrendPoint[],
+  sessions: TrendPoint[],
+  upvotes: Map<string, number>
+): ChartDotPoint[] {
   if (!arr.length) return [];
   const max = Math.max(...arr.map((i) => i.y), 1);
   const step = (CHART_W - CHART_PAD * 2) / Math.max(arr.length - 1, 1);
@@ -380,6 +385,7 @@ function dotPointsOf(arr: TrendPoint[], sessions: TrendPoint[]): ChartDotPoint[]
       date,
       views: p.y,
       sessions: sessionMap.get(date) ?? 0,
+      upvotes: upvotes.get(date) ?? 0,
     };
   });
 }
@@ -422,6 +428,57 @@ const chartArea = computed(() => {
   const last = chartPoints.value.split(' ').pop()!.split(',')[0];
   return `${first},${CHART_H - CHART_PAD} ${chartPoints.value} ${last},${CHART_H - CHART_PAD}`;
 });
+
+// ==================== 每日点赞统计（插件后端监听点赞事件记录） ====================
+interface DayUpvotes {
+  total: number;
+  posts: Record<string, number>;
+}
+
+const upvoteDaily = ref<Record<string, DayUpvotes>>({});
+
+async function fetchUpvotes() {
+  try {
+    const { data } = await axiosInstance.get(
+      '/apis/api.article-analysis.run.halo/v1alpha1/upvotes/daily'
+    );
+    upvoteDaily.value = data.daily || {};
+  } catch (e) {
+    console.error('点赞数据加载失败', e);
+  }
+}
+
+// 日期(yyyy-MM-dd) → 全站文章点赞数
+const siteUpvoteMap = computed(() => {
+  const m = new Map<string, number>();
+  for (const [d, v] of Object.entries(upvoteDaily.value)) {
+    m.set(d, v.total || 0);
+  }
+  return m;
+});
+
+// 日期 → 当前抽屉文章点赞数
+const drawerUpvoteMap = computed(() => {
+  const m = new Map<string, number>();
+  const name = drawerPost.value?.name;
+  if (!name) return m;
+  for (const [d, v] of Object.entries(upvoteDaily.value)) {
+    const n = v.posts?.[name];
+    if (n) m.set(d, n);
+  }
+  return m;
+});
+
+function sumUpvotes(series: TrendPoint[], upvotes: Map<string, number>): number {
+  return series.reduce(
+    (s, p) => s + (upvotes.get(dayjs(p.x).format('YYYY-MM-DD')) ?? 0),
+    0
+  );
+}
+
+const siteUpvoteTotal = computed(() => sumUpvotes(siteSeries.value, siteUpvoteMap.value));
+
+const drawerUpvoteTotal = computed(() => sumUpvotes(trendSeries.value, drawerUpvoteMap.value));
 
 // ==================== 全站作品数据视图（趋势图 / 数据列表） ====================
 type MainView = 'trend' | 'daily' | 'articles';
@@ -523,7 +580,9 @@ const siteAxis = computed(() => axisOf(siteSeries.value));
 
 // 主视图趋势图悬停状态与点集
 const siteHover = ref(-1);
-const siteDots = computed(() => dotPointsOf(siteSeries.value, siteSessions.value));
+const siteDots = computed(() =>
+  dotPointsOf(siteSeries.value, siteSessions.value, siteUpvoteMap.value)
+);
 
 function onSiteChartMove(e: MouseEvent) {
   siteHover.value = hoverIdxOf(e, siteSeries.value.length);
@@ -536,6 +595,7 @@ const siteDailyRows = computed(() => {
       date: dayjs(p.x).format('YYYY-MM-DD'),
       views: p.y,
       sessions: sessions.get(p.x) ?? 0,
+      upvotes: siteUpvoteMap.value.get(dayjs(p.x).format('YYYY-MM-DD')) ?? 0,
     }))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 });
@@ -548,7 +608,9 @@ const drawerAxis = computed(() => axisOf(trendSeries.value));
 
 // 抽屉趋势图悬停状态与点集
 const drawerHover = ref(-1);
-const drawerDots = computed(() => dotPointsOf(trendSeries.value, sessionSeries.value));
+const drawerDots = computed(() =>
+  dotPointsOf(trendSeries.value, sessionSeries.value, drawerUpvoteMap.value)
+);
 
 function onDrawerChartMove(e: MouseEvent) {
   drawerHover.value = hoverIdxOf(e, trendSeries.value.length);
@@ -562,6 +624,7 @@ const dailyRows = computed(() => {
       date: dayjs(p.x).format('YYYY-MM-DD'),
       views: p.y,
       sessions: sessions.get(p.x) ?? 0,
+      upvotes: drawerUpvoteMap.value.get(dayjs(p.x).format('YYYY-MM-DD')) ?? 0,
     }))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 });
@@ -600,13 +663,14 @@ function exportCsv() {
 onMounted(() => {
   fetchAllPosts();
   fetchSiteTrend();
+  fetchUpvotes();
 });
 </script>
 <template>
   <VPageHeader title="文章数据">
     <template #actions>
       <VButton type="secondary" @click="exportCsv">导出数据</VButton>
-      <VButton type="secondary" @click="fetchAllPosts">
+      <VButton type="secondary" @click="fetchAllPosts(); fetchUpvotes()">
         <template #icon>
           <IconRefreshLine />
         </template>
@@ -723,6 +787,10 @@ onMounted(() => {
               <div class="period-stat-value">{{ avgDurationOf(siteStats) }}</div>
               <div class="period-stat-label">平均访问时长</div>
             </div>
+            <div class="period-stat">
+              <div class="period-stat-value">{{ siteUpvoteTotal }}</div>
+              <div class="period-stat-label">点赞量</div>
+            </div>
           </div>
           <!-- 图表区与列表区固定同高，切换页签不再跳动 -->
           <div v-if="mainView === 'trend'" class="trend-chart-box">
@@ -775,6 +843,11 @@ onMounted(() => {
                       <span class="tt-label">访问次数</span>
                       <span class="tt-value">{{ siteDots[siteHover].sessions }}</span>
                     </div>
+                    <div class="tt-row">
+                      <i class="tt-dot tt-dot-upvotes"></i>
+                      <span class="tt-label">点赞量</span>
+                      <span class="tt-value">{{ siteDots[siteHover].upvotes }}</span>
+                    </div>
                   </div>
                 </template>
               </div>
@@ -792,6 +865,7 @@ onMounted(() => {
                   <th>日期</th>
                   <th class="col-center">浏览量</th>
                   <th class="col-center">访问次数</th>
+                  <th class="col-center">点赞量</th>
                 </tr>
               </thead>
               <tbody>
@@ -799,6 +873,7 @@ onMounted(() => {
                   <td>{{ row.date }}</td>
                   <td class="col-center">{{ row.views }}</td>
                   <td class="col-center">{{ row.sessions }}</td>
+                  <td class="col-center">{{ row.upvotes }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1060,6 +1135,10 @@ onMounted(() => {
                     <div class="period-stat-value">{{ avgDuration }}</div>
                     <div class="period-stat-label">平均访问时长</div>
                   </div>
+                  <div class="period-stat">
+                    <div class="period-stat-value">{{ drawerUpvoteTotal }}</div>
+                    <div class="period-stat-label">点赞量</div>
+                  </div>
                 </div>
 
                 <!-- 视图切换 -->
@@ -1131,6 +1210,11 @@ onMounted(() => {
                             <span class="tt-label">访问次数</span>
                             <span class="tt-value">{{ drawerDots[drawerHover].sessions }}</span>
                           </div>
+                          <div class="tt-row">
+                            <i class="tt-dot tt-dot-upvotes"></i>
+                            <span class="tt-label">点赞量</span>
+                            <span class="tt-value">{{ drawerDots[drawerHover].upvotes }}</span>
+                          </div>
                         </div>
                       </template>
                     </div>
@@ -1150,6 +1234,7 @@ onMounted(() => {
                         <th>日期</th>
                         <th class="col-center">浏览量</th>
                         <th class="col-center">访问次数</th>
+                        <th class="col-center">点赞量</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1157,6 +1242,7 @@ onMounted(() => {
                         <td>{{ row.date }}</td>
                         <td class="col-center">{{ row.views }}</td>
                         <td class="col-center">{{ row.sessions }}</td>
+                        <td class="col-center">{{ row.upvotes }}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1894,6 +1980,10 @@ a.title-link:hover {
 
 .tt-dot-sessions {
   background: #60a5fa;
+}
+
+.tt-dot-upvotes {
+  background: #f78989;
 }
 
 .tt-label {
