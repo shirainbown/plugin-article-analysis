@@ -13,3 +13,5 @@ jobs:
     uses: halo-sigs/reusable-workflows/.github/workflows/plugin-ci.yaml@v4
     with:
       ui-path: "ui"
+      # 前端产物已提交进仓库，CI 无需安装 Node/pnpm（否则 setup-node 缓存保存会失败）
+      skip-node-setup: true

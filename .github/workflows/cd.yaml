@@ -12,5 +12,7 @@ jobs:
       contents: write
     with:
       ui-path: "ui"
+      # 前端产物已提交进仓库，CI 无需安装 Node/pnpm（否则 setup-node 缓存保存会失败）
+      skip-node-setup: true
       # 首次上架审核通过前，仅上传 GitHub Release 资产，不同步应用市场
       skip-appstore-release: true
