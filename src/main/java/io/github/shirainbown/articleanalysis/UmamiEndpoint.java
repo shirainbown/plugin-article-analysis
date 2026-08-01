@@ -1,4 +1,4 @@
-package run.halo.article.analysis;
+package io.github.shirainbown.articleanalysis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +24,7 @@ import run.halo.app.plugin.PluginContext;
  * Umami 数据代理端点：把 Umami API 的按 URL 页面访问数据代理给 console 前端，
  * apiKey 只存在服务端 ConfigMap 中，不下发到浏览器。
  *
- * <p>GET /apis/api.article-analysis.run.halo/v1alpha1/umami/pageviews?url=/archives/xxx&amp;days=30
+ * <p>GET /apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/pageviews?url=/archives/xxx&amp;days=30
  */
 @Component
 public class UmamiEndpoint implements CustomEndpoint {
@@ -44,7 +44,7 @@ public class UmamiEndpoint implements CustomEndpoint {
 
     @Override
     public GroupVersion groupVersion() {
-        return GroupVersion.parseAPIVersion("api.article-analysis.run.halo/v1alpha1");
+        return GroupVersion.parseAPIVersion("api.article-analysis.io.github.shirainbown/v1alpha1");
     }
 
     @Override

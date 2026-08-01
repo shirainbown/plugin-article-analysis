@@ -30,3 +30,13 @@ spec:
           label: 统计时区
           value: ""
           help: 每日点赞按此时区的自然日归档，例如 Asia/Shanghai；留空则使用服务器默认时区
+        - $formkit: number
+          name: retentionDays
+          label: 数据保留天数
+          value: 90
+          help: 每日点赞明细只保留最近 N 天（7-365），过期数据在每次轮询时自动清理
+        - $formkit: number
+          name: pollIntervalSeconds
+          label: 轮询间隔（秒）
+          value: 300
+          help: 点赞计数快照的采集间隔（60-3600 秒），修改后需重启插件生效

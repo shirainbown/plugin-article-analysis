@@ -1,4 +1,4 @@
-package run.halo.article.analysis;
+package io.github.shirainbown.articleanalysis;
 
 import org.springframework.stereotype.Component;
 import run.halo.app.plugin.BasePlugin;

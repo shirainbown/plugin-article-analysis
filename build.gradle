@@ -3,7 +3,7 @@ plugins {
     id "run.halo.plugin.devtools" version "0.6.2"
 }
 
-group 'run.halo.article.analysis'
+group 'io.github.shirainbown.articleanalysis'
 
 java {
     toolchain {
@@ -30,6 +30,13 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+jar {
+    // 许可证需随制品一并分发（应用市场审核要求）
+    from(rootDir) {
+        include 'LICENSE'
+    }
 }
 
 halo {

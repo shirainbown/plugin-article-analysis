@@ -275,7 +275,7 @@ async function fetchTrend() {
   try {
     const { startAt, endAt } = currentRange();
     const { data } = await axiosInstance.get(
-      '/apis/api.article-analysis.run.halo/v1alpha1/umami/pageviews',
+      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/pageviews',
       { params: { url: permalinkPath(p.permalink), startAt, endAt } }
     );
     if (!data.configured) {
@@ -440,7 +440,7 @@ const upvoteDaily = ref<Record<string, DayUpvotes>>({});
 async function fetchUpvotes() {
   try {
     const { data } = await axiosInstance.get(
-      '/apis/api.article-analysis.run.halo/v1alpha1/upvotes/daily'
+      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/upvotes/daily'
     );
     upvoteDaily.value = data.daily || {};
   } catch (e) {
@@ -531,7 +531,7 @@ async function fetchSiteTrend() {
     const { startAt, endAt } = currentSiteRange();
     // url 传空 = 全站数据（后端不过滤 path）
     const { data } = await axiosInstance.get(
-      '/apis/api.article-analysis.run.halo/v1alpha1/umami/pageviews',
+      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/pageviews',
       { params: { url: '', startAt, endAt } }
     );
     if (!data.configured) {

@@ -64,6 +64,20 @@ API Key / 账密仅保存在服务端 ConfigMap 中，由插件后端代理查�
 | 字段 | 说明 |
 | --- | --- |
 | 统计时区 | 每日点赞按此时区的自然日归档，例如 `Asia/Shanghai`；留空使用服务器默认时区 |
+| 数据保留天数 | 按日明细只保留最近 N 天（默认 90，可选 7–365），过期数据在每次轮询时自动清理 |
+| 轮询间隔 | 点赞计数快照的采集间隔（默认 300 秒，可选 60–3600），修改后需重启插件生效 |
+
+## 数据存储与生命周期
+
+插件仅产生一类自有数据：每日点赞统计，全部存放在 Halo 扩展存储的单个 ConfigMap `article-analysis-upvote-daily` 中（不引入外部数据库），采用有边界的存储设计：
+
+- **采集**：后台线程按固定间隔（默认 300 秒）读取文章 Counter 快照并计算增量，增量记入当日；文章删除后其快照在下一次轮询自动移除
+- **保留**：按日数据只保留最近「数据保留天数」（默认 90 天），过期 key 在每次轮询时自动裁剪；每天最多记录 1000 篇文章的明细，超出部分只累计到全站总数，存储体积不会随文章数与时间无限增长
+- **查询**：`GET /apis/api.article-analysis.io.github.shirainbown/v1alpha1/upvotes/daily?days=N` 只返回最近 N 天（默认 90，最大 365）
+- **清理**：`DELETE /apis/api.article-analysis.io.github.shirainbown/v1alpha1/upvotes/daily` 可清空全部统计数据（Console 管理员身份调用），下一轮轮询自动重建快照
+- **备份**：统计数据仅存在于上述 ConfigMap，随 Halo 站点备份（Console → 系统 → 备份）一并导出，无需单独备份方案
+- **卸载**：卸载插件后统计数据不再被读写，可手动删除 ConfigMap 完成清理：Console → 系统 → 设置 → 高级（或直接调用 `DELETE /api/v1alpha1/configmaps/article-analysis-upvote-daily`）；插件卸载不会主动删除数据，重装后历史统计仍可继续使用
+- **Umami 数据**：浏览量等趋势数据存储在你自建的 Umami 服务中，插件只代理查询、不落地保存，其生命周期由 Umami 自身管理
 
 ## 使用
 
