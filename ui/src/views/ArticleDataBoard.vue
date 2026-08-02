@@ -600,6 +600,28 @@ const siteDailyRows = computed(() => {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 });
 
+// 文章名 → 文章行（用于把点赞明细的文章名解析为标题 / 打开详情抽屉）
+const postByName = computed(() => new Map(posts.value.map((p) => [p.name, p])));
+
+interface UpvotePostDetail {
+  name: string;
+  title: string;
+  count: number;
+  post: PostRow | undefined;
+}
+
+// 某天被点赞的文章明细（按点赞数倒序），数据来自 upvoteDaily[date].posts
+function upvoteDetailOf(date: string): UpvotePostDetail[] {
+  const day = upvoteDaily.value[date];
+  if (!day?.posts) return [];
+  return Object.entries(day.posts)
+    .map(([name, count]) => {
+      const post = postByName.value.get(name);
+      return { name, title: post?.title || name, count, post };
+    })
+    .sort((a, b) => b.count - a.count);
+}
+
 function formatAxisDate(x: string) {
   return dayjs(x).format('MM-DD');
 }
@@ -866,6 +888,7 @@ onMounted(() => {
                   <th class="col-center">浏览量</th>
                   <th class="col-center">访问次数</th>
                   <th class="col-center">点赞量</th>
+                  <th>点赞明细</th>
                 </tr>
               </thead>
               <tbody>
@@ -874,6 +897,21 @@ onMounted(() => {
                   <td class="col-center">{{ row.views }}</td>
                   <td class="col-center">{{ row.sessions }}</td>
                   <td class="col-center">{{ row.upvotes }}</td>
+                  <td>
+                    <template v-if="upvoteDetailOf(row.date).length">
+                      <span
+                        v-for="d in upvoteDetailOf(row.date)"
+                        :key="d.name"
+                        class="upv-chip"
+                        :class="{ clickable: !!d.post }"
+                        :title="d.post ? '点击查看该文章数据' : d.name"
+                        @click="d.post && openDrawer(d.post)"
+                      >
+                        {{ d.title }} ×{{ d.count }}
+                      </span>
+                    </template>
+                    <span v-else class="upv-empty">-</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -2040,5 +2078,36 @@ a.title-link:hover {
 
 .daily-table tbody tr:hover {
   background-color: #f9fafb;
+}
+
+/* 点赞明细 chip */
+.upv-chip {
+  display: inline-block;
+  margin: 0.125rem 0.375rem 0.125rem 0;
+  padding: 0.125rem 0.625rem;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.upv-chip.clickable {
+  cursor: pointer;
+}
+
+.upv-chip.clickable:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.upv-empty {
+  color: #9ca3af;
 }
 </style>
