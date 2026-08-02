@@ -25,6 +25,9 @@ import run.halo.app.plugin.PluginContext;
  * apiKey 只存在服务端 ConfigMap 中，不下发到浏览器。
  *
  * <p>GET /apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/pageviews?url=/archives/xxx&amp;days=30
+ *
+ * <p>GET /apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/url-metrics?startAt=..&amp;endAt=..
+ * 按 URL 维度聚合区间内浏览量（一次请求覆盖全部文章，用于文章列表的区间阅读列）
  */
 @Component
 public class UmamiEndpoint implements CustomEndpoint {
@@ -51,7 +54,57 @@ public class UmamiEndpoint implements CustomEndpoint {
     public RouterFunction<ServerResponse> endpoint() {
         return RouterFunctions.route()
             .GET("umami/pageviews", this::getPageviews)
+            .GET("umami/url-metrics", this::getUrlMetrics)
             .build();
+    }
+
+    /**
+     * 按 URL 维度聚合区间内浏览量：一次请求覆盖全部页面，供文章列表的「区间阅读」列使用。
+     */
+    private Mono<ServerResponse> getUrlMetrics(ServerRequest request) {
+        return loadUmamiConfig().flatMap(cfg -> {
+            if (!cfg.configured()) {
+                return ServerResponse.ok().bodyValue(Map.of("configured", false));
+            }
+            long endAt = request.queryParam("endAt").map(Long::parseLong)
+                .orElseGet(System::currentTimeMillis);
+            long startAt = request.queryParam("startAt").map(Long::parseLong)
+                .orElse(endAt - 30 * 86_400_000L);
+            return queryUmamiMetrics(cfg, startAt, endAt)
+                .flatMap(body -> ServerResponse.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{\"configured\":true,\"metrics\":" + body + "}"))
+                .onErrorResume(e -> ServerResponse.ok().bodyValue(
+                    Map.of("configured", true, "error",
+                        StringUtils.defaultString(e.getMessage(), "Umami 请求失败"))));
+        });
+    }
+
+    /**
+     * 调 Umami /metrics 接口，返回 [{x: 路径, y: 浏览量}] 的原始 JSON。
+     * Umami 2.16 起 URL 维度参数名从 url 改为 path，优先 path、400 时回退 url 兼容旧版。
+     */
+    private Mono<String> queryUmamiMetrics(UmamiConfig cfg, long startAt, long endAt) {
+        return queryUmamiMetricsByType(cfg, startAt, endAt, "path")
+            .onErrorResume(e -> queryUmamiMetricsByType(cfg, startAt, endAt, "url"));
+    }
+
+    private Mono<String> queryUmamiMetricsByType(UmamiConfig cfg, long startAt, long endAt,
+                                                 String type) {
+        return resolveToken(cfg).flatMap(token -> WebClient.builder()
+            .baseUrl(cfg.serverUrl())
+            .build()
+            .get()
+            .uri(builder -> builder.path("/api/websites/{id}/metrics")
+                .queryParam("startAt", startAt)
+                .queryParam("endAt", endAt)
+                .queryParam("type", type)
+                .queryParam("limit", 500)
+                .build(cfg.websiteId()))
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .retrieve()
+            .bodyToMono(String.class)
+            .timeout(TIMEOUT));
     }
 
     private Mono<ServerResponse> getPageviews(ServerRequest request) {

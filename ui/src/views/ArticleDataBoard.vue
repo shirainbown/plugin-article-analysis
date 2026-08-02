@@ -43,7 +43,14 @@ const phaseFilter = ref<'ALL' | 'PUBLISHED' | 'DRAFT' | 'PENDING_APPROVAL'>('ALL
 const categoryFilter = ref('ALL');
 
 // 排序
-type SortKey = 'visit' | 'upvote' | 'approvedComment' | 'publishTime' | 'title';
+type SortKey =
+  | 'visit'
+  | 'upvote'
+  | 'approvedComment'
+  | 'publishTime'
+  | 'title'
+  | 'rangeVisit'
+  | 'rangeUpvote';
 const sortKey = ref<SortKey>('publishTime');
 const sortAsc = ref(false);
 
@@ -136,6 +143,8 @@ const sorted = computed(() => {
     const key = sortKey.value;
     if (key === 'title') return a.title.localeCompare(b.title, 'zh-CN') * dir;
     if (key === 'publishTime') return (a.publishTime < b.publishTime ? -1 : 1) * dir;
+    if (key === 'rangeVisit') return (rangeViewsOf(a) - rangeViewsOf(b)) * dir;
+    if (key === 'rangeUpvote') return (rangeUpvotesOf(a) - rangeUpvotesOf(b)) * dir;
     return (a[key] - b[key]) * dir;
   });
   return arr;
@@ -440,7 +449,9 @@ const upvoteDaily = ref<Record<string, DayUpvotes>>({});
 async function fetchUpvotes() {
   try {
     const { data } = await axiosInstance.get(
-      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/upvotes/daily'
+      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/upvotes/daily',
+      // 拉满 365 天，保证自定义区间的按日点赞求和不被默认 90 天窗口截断
+      { params: { days: 365 } }
     );
     upvoteDaily.value = data.daily || {};
   } catch (e) {
@@ -651,13 +662,101 @@ const dailyRows = computed(() => {
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 });
 
+// ==================== 单篇文章分析：区间数据（阅读 = Umami 按 URL 聚合，点赞 = 按日明细求和） ====================
+const artRangeMode = ref<'7' | '30' | '90' | 'custom'>('30');
+const artCustomStart = ref(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
+const artCustomEnd = ref(dayjs().format('YYYY-MM-DD'));
+const urlMetrics = ref<Record<string, number>>({});
+const urlMetricsConfigured = ref(true);
+
+const artRangeLabel = computed(() =>
+  artRangeMode.value === 'custom' ? '自定义区间' : `近${artRangeMode.value}天`
+);
+
+function currentArtRange(): { startAt: number; endAt: number } {
+  if (artRangeMode.value === 'custom') {
+    return {
+      startAt: dayjs(artCustomStart.value).startOf('day').valueOf(),
+      endAt: dayjs(artCustomEnd.value).endOf('day').valueOf(),
+    };
+  }
+  const endAt = Date.now();
+  return { startAt: endAt - Number(artRangeMode.value) * 86_400_000, endAt };
+}
+
+function setArtRangeMode(mode: '7' | '30' | '90' | 'custom') {
+  artRangeMode.value = mode;
+  if (mode !== 'custom') {
+    fetchUrlMetrics();
+  }
+}
+
+function applyArtCustomRange() {
+  if (!artCustomStart.value || !artCustomEnd.value) {
+    Toast.warning('请选择开始和结束日期');
+    return;
+  }
+  if (dayjs(artCustomStart.value).isAfter(dayjs(artCustomEnd.value))) {
+    Toast.warning('开始日期不能晚于结束日期');
+    return;
+  }
+  fetchUrlMetrics();
+}
+
+async function fetchUrlMetrics() {
+  try {
+    const { startAt, endAt } = currentArtRange();
+    const { data } = await axiosInstance.get(
+      '/apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/url-metrics',
+      { params: { startAt, endAt } }
+    );
+    if (!data.configured) {
+      urlMetricsConfigured.value = false;
+      urlMetrics.value = {};
+      return;
+    }
+    urlMetricsConfigured.value = true;
+    const map: Record<string, number> = {};
+    for (const m of data.metrics || []) {
+      if (m && typeof m.x === 'string') map[m.x] = m.y ?? 0;
+    }
+    urlMetrics.value = map;
+  } catch (e) {
+    console.error('区间阅读数据加载失败', e);
+  }
+}
+
+function rangeViewsOf(p: PostRow) {
+  if (!p.permalink) return 0;
+  return urlMetrics.value[permalinkPath(p.permalink)] ?? 0;
+}
+
+// 区间内每篇文章的点赞数（upvoteDaily 按日明细在区间内求和）
+const rangeUpvoteMap = computed(() => {
+  const { startAt, endAt } = currentArtRange();
+  const start = dayjs(startAt).format('YYYY-MM-DD');
+  const end = dayjs(endAt).format('YYYY-MM-DD');
+  const map = new Map<string, number>();
+  for (const [date, day] of Object.entries(upvoteDaily.value)) {
+    if (date < start || date > end || !day.posts) continue;
+    for (const [name, count] of Object.entries(day.posts)) {
+      map.set(name, (map.get(name) ?? 0) + count);
+    }
+  }
+  return map;
+});
+
+function rangeUpvotesOf(p: PostRow) {
+  return rangeUpvoteMap.value.get(p.name) ?? 0;
+}
+
 // ==================== 导出 CSV ====================
 function csvCell(s: string | number) {
   return '"' + String(s).replace(/"/g, '""') + '"';
 }
 
 function exportCsv() {
-  const header = '标题,状态,分类,阅读,评论(已审核),评论(总数),点赞,发布时间,链接\n';
+  const header = `标题,状态,分类,阅读,评论(已审核),评论(总数),点赞,阅读(${artRangeLabel.value}),点赞(${artRangeLabel.value}),发布时间,链接\n`;
   const lines = sorted.value.map((p) =>
     [
       csvCell(p.title),
@@ -667,6 +766,8 @@ function exportCsv() {
       p.approvedComment,
       p.totalComment,
       p.upvote,
+      rangeViewsOf(p),
+      rangeUpvotesOf(p),
       csvCell(formatTime(p.publishTime)),
       csvCell(p.permalink),
     ].join(',')
@@ -686,6 +787,7 @@ onMounted(() => {
   fetchAllPosts();
   fetchSiteTrend();
   fetchUpvotes();
+  fetchUrlMetrics();
 });
 </script>
 <template>
@@ -921,6 +1023,40 @@ onMounted(() => {
 
       <!-- ========== 单篇文章分析视图 ========== -->
       <template v-else>
+      <!-- 数据区间（作用于「区间阅读 / 区间点赞」列） -->
+      <div class="range-bar art-range-bar">
+        <span class="muted">数据区间</span>
+        <button
+          v-for="m in [
+            { key: '7', label: '近7天' },
+            { key: '30', label: '近30天' },
+            { key: '90', label: '近90天' },
+          ]"
+          :key="m.key"
+          class="range-btn"
+          :class="{ active: artRangeMode === m.key }"
+          @click="setArtRangeMode(m.key as '7' | '30' | '90')"
+        >
+          {{ m.label }}
+        </button>
+        <button
+          class="range-btn"
+          :class="{ active: artRangeMode === 'custom' }"
+          @click="setArtRangeMode('custom')"
+        >
+          自定义
+        </button>
+        <template v-if="artRangeMode === 'custom'">
+          <input v-model="artCustomStart" type="date" class="date-input" />
+          <span class="muted">至</span>
+          <input v-model="artCustomEnd" type="date" class="date-input" />
+          <VButton size="sm" @click="applyArtCustomRange">查询</VButton>
+        </template>
+        <span v-if="!urlMetricsConfigured" class="muted">
+          未配置 Umami，区间阅读列不可用
+        </span>
+      </div>
+
       <!-- 状态页签 -->
       <div class="phase-tabs">
         <button
@@ -960,7 +1096,7 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
-                <th class="sortable" @click="toggleSort('title')">
+                <th class="sortable col-title" @click="toggleSort('title')">
                   文章
                   <IconArrowUpDownLine v-if="sortKey !== 'title'" class="sort-icon" />
                   <IconArrowUpLine v-else-if="sortAsc" class="sort-icon active" />
@@ -983,6 +1119,18 @@ onMounted(() => {
                 <th class="col-num col-center sortable" @click="toggleSort('upvote')">
                   点赞
                   <IconArrowUpDownLine v-if="sortKey !== 'upvote'" class="sort-icon" />
+                  <IconArrowUpLine v-else-if="sortAsc" class="sort-icon active" />
+                  <IconArrowDownLine v-else class="sort-icon active" />
+                </th>
+                <th class="col-num col-range col-center sortable" @click="toggleSort('rangeVisit')">
+                  阅读·{{ artRangeLabel }}
+                  <IconArrowUpDownLine v-if="sortKey !== 'rangeVisit'" class="sort-icon" />
+                  <IconArrowUpLine v-else-if="sortAsc" class="sort-icon active" />
+                  <IconArrowDownLine v-else class="sort-icon active" />
+                </th>
+                <th class="col-num col-range col-center sortable" @click="toggleSort('rangeUpvote')">
+                  点赞·{{ artRangeLabel }}
+                  <IconArrowUpDownLine v-if="sortKey !== 'rangeUpvote'" class="sort-icon" />
                   <IconArrowUpLine v-else-if="sortAsc" class="sort-icon active" />
                   <IconArrowDownLine v-else class="sort-icon active" />
                 </th>
@@ -1028,6 +1176,10 @@ onMounted(() => {
                   >
                 </td>
                 <td class="col-num col-center numeric">{{ p.upvote }}</td>
+                <td class="col-num col-center numeric">
+                  {{ urlMetricsConfigured ? rangeViewsOf(p) : '-' }}
+                </td>
+                <td class="col-num col-center numeric">{{ rangeUpvotesOf(p) }}</td>
                 <td class="col-time col-center time-cell">{{ formatTime(p.publishTime) }}</td>
                 <td class="col-action col-center action-cell">
                   <a class="action-link" @click="openDrawer(p)">数据</a>
@@ -1443,8 +1595,19 @@ onMounted(() => {
   width: 5rem;
 }
 
+/* 区间数据列（阅读·近N天 / 点赞·近N天） */
+.data-table .col-range {
+  width: 7rem;
+}
+
+/* 标题列保底宽度，列数增多时不被挤没，超出部分横向滚动 */
+.data-table .col-title {
+  min-width: 16rem;
+}
+
 .data-table .col-status {
-  width: 5.5rem;
+  width: 6rem;
+  white-space: nowrap;
 }
 
 .data-table .col-category {
@@ -2078,6 +2241,16 @@ a.title-link:hover {
 
 .daily-table tbody tr:hover {
   background-color: #f9fafb;
+}
+
+/* 单篇文章分析：区间选择行 */
+.art-range-bar {
+  margin-bottom: 0.875rem;
+}
+
+.art-range-bar .muted {
+  font-size: 0.8125rem;
+  color: #9ca3af;
 }
 
 /* 点赞明细 chip */
