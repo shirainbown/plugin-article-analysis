@@ -10,9 +10,14 @@ jobs:
     uses: halo-sigs/reusable-workflows/.github/workflows/plugin-cd.yaml@v4
     permissions:
       contents: write
+    secrets:
+      # Halo 应用市场个人令牌（GitHub repo secret HALO_PAT，需含版本管理权限）
+      halo-pat: ${{ secrets.HALO_PAT }}
     with:
       ui-path: "ui"
       # 前端产物已提交进仓库，CI 无需安装 Node/pnpm（否则 setup-node 缓存保存会失败）
       skip-node-setup: true
-      # 首次上架审核通过前，仅上传 GitHub Release 资产，不同步应用市场
-      skip-appstore-release: true
+      # 已上架应用市场，Release 发布时自动同步到应用市场
+      skip-appstore-release: false
+      # 应用市场应用 ID（开发者中心可见）
+      app-id: app-jweuu8bm
