@@ -2,6 +2,8 @@
 
 Halo 文章数据趋势分析插件：在 Console 提供全站与单篇文章的数据看板，帮助站长掌握内容表现。
 
+💬 **使用交流**：插件配套的 Umami 部署与数据统计教程见博客文章 [《Halo 博客访问量统计系统：Umami 自托管部署完整教程》](https://blog.songshiyu.cn/archives/halobo-ke-fang-wen-liang-tong-ji-xi-tong-umami-zi-tuo-guan-bu-shu-wan-zheng-jiao-cheng)，遇到问题或有功能建议欢迎在文章下方留言评论，会及时回复。
+
 ## 功能特性
 
 ### 全站数据看板
