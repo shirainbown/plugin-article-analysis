@@ -884,7 +884,7 @@ onMounted(() => {
       <template v-if="mainView !== 'articles'">
         <div v-if="!siteUmamiConfigured" class="trend-hint">
           未配置 Umami。请在「插件 → 文章数据分析 → 设置」中填写 Umami 服务地址、站点
-          ID 和 API Key 后查看趋势数据。
+          ID 和登录用户名、密码后查看趋势数据。
         </div>
         <VLoading v-else-if="siteLoading" />
         <div v-else-if="siteError" class="trend-hint">趋势数据加载失败：{{ siteError }}</div>
@@ -1266,7 +1266,7 @@ onMounted(() => {
 
             <div v-if="!umamiConfigured" class="trend-hint">
               未配置 Umami。请在「插件 → 文章数据分析 → 设置」中填写 Umami 服务地址、站点
-              ID 和 API Key 后查看趋势数据。
+              ID 和登录用户名、密码后查看趋势数据。
             </div>
             <template v-else>
               <!-- 时间范围 -->

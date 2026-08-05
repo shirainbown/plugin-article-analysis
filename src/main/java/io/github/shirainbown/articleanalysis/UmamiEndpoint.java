@@ -22,7 +22,7 @@ import run.halo.app.plugin.PluginContext;
 
 /**
  * Umami 数据代理端点：把 Umami API 的按 URL 页面访问数据代理给 console 前端，
- * apiKey 只存在服务端 ConfigMap 中，不下发到浏览器。
+ * 登录账密只存在服务端 ConfigMap 中，不下发到浏览器。
  *
  * <p>GET /apis/api.article-analysis.io.github.shirainbown/v1alpha1/umami/pageviews?url=/archives/xxx&amp;days=30
  *
@@ -145,7 +145,7 @@ public class UmamiEndpoint implements CustomEndpoint {
     }
 
     /**
-     * 调 Umami API：优先使用 API Key；未配置时用账密登录换取令牌。
+     * 调 Umami API：用账密登录换取访问令牌后请求数据接口。
      */
     private Mono<String> queryUmami(UmamiConfig cfg, String path, long startAt, long endAt,
                                       String url, String unit) {
@@ -173,9 +173,6 @@ public class UmamiEndpoint implements CustomEndpoint {
     }
 
     private Mono<String> resolveToken(UmamiConfig cfg) {
-        if (StringUtils.isNotBlank(cfg.apiKey())) {
-            return Mono.just(cfg.apiKey());
-        }
         return WebClient.builder()
             .baseUrl(cfg.serverUrl())
             .build()
@@ -206,7 +203,6 @@ public class UmamiEndpoint implements CustomEndpoint {
                     return new UmamiConfig(
                         StringUtils.defaultString(node.path("serverUrl").asText("")),
                         StringUtils.defaultString(node.path("websiteId").asText("")),
-                        StringUtils.defaultString(node.path("apiKey").asText("")),
                         StringUtils.defaultString(node.path("username").asText("")),
                         StringUtils.defaultString(node.path("password").asText("")));
                 } catch (Exception e) {
@@ -216,15 +212,15 @@ public class UmamiEndpoint implements CustomEndpoint {
             .defaultIfEmpty(UmamiConfig.EMPTY);
     }
 
-    private record UmamiConfig(String serverUrl, String websiteId, String apiKey,
+    private record UmamiConfig(String serverUrl, String websiteId,
                                String username, String password) {
-        static final UmamiConfig EMPTY = new UmamiConfig("", "", "", "", "");
+        static final UmamiConfig EMPTY = new UmamiConfig("", "", "", "");
 
         boolean configured() {
             return StringUtils.isNotBlank(serverUrl)
                 && StringUtils.isNotBlank(websiteId)
-                && (StringUtils.isNotBlank(apiKey)
-                || (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)));
+                && StringUtils.isNotBlank(username)
+                && StringUtils.isNotBlank(password);
         }
     }
 }

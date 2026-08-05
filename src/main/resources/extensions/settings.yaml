@@ -17,11 +17,16 @@ spec:
           label: 站点 ID（Website ID）
           value: ""
           help: Umami 网站详情中的 Website ID（UUID 格式）
-        - $formkit: password
-          name: apiKey
-          label: API Key
+        - $formkit: text
+          name: username
+          label: 登录用户名
           value: ""
-          help: Umami 后台「设置 → API keys」中创建；仅用于服务端代理查询，不会下发到前端
+          help: Umami 后台的登录用户名，插件后端用它登录换取访问令牌
+        - $formkit: password
+          name: password
+          label: 登录密码
+          value: ""
+          help: Umami 后台的登录密码；仅保存在服务端，不会下发到前端
     - group: upvote
       label: 点赞统计
       formSchema:
